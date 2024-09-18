@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/javyliu/proxy/internal"
-	"github.com/javyliu/proxy/pkg/aescbc"
+	"github.com/javyliu/proxy/pkg/aescrypto"
 )
 
 // var wg sync.WaitGroup
@@ -45,58 +45,29 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
+	defer log.Println("conn is closed")
 
 	defer conn.Close()
 
-	socksConn, err := net.Dial("tcp", *serverIp)
+	socksConn, err := net.DialTimeout("tcp", *serverIp, 5*time.Second)
+	clientA := internal.NewClient(conn)
+	clientB := internal.NewClient(socksConn)
 	//  to SOCKS
 	if err != nil {
-		log.Println(&conn, "[error_dial]", err)
+		log.Println(clientA.Id, "[error_dial]", err)
 		return
 	}
 	defer socksConn.Close()
 
-	aeschiper, err := aescbc.New(key)
+	aeschiper, err := aescrypto.New(*key)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	clientA := internal.NewClient(conn)
-	clientB := internal.NewClient(socksConn)
-
-	defer log.Println(clientA.Id, "A connection closed")
-	defer log.Println(clientB.Id, "B connection closed")
-
-	log.Println("AconnId:", clientA.Id, "BconnId:", clientB.Id)
-
-	stopChannel := make(chan bool, 2)
-	// defer close(stopChannel)
-
-	// wg.Add(2)
 	//  to SOCKS
-	go func() {
-		defer func() { stopChannel <- true }() // stopChannel <- true
-
-		// defer wg.Done()
-		defer log.Println("[---------A close]", clientA.Id)
-
-		// aeschiper.ReadAndWrite(conn, socksConn, false)
-		aeschiper.ReadAndWriteStream(*clientA, *clientB, false)
-	}()
+	go aeschiper.ReadAndWriteStream(*clientA, *clientB, false)
 
 	//  from SOCKS
-	go func() {
-		defer func() { stopChannel <- true }() // stopChannel <- true
-
-		// defer wg.Done()
-		defer log.Println("[---------B  close]", clientB.Id)
-
-		// aeschiper.ReadAndWrite(socksConn, conn, true)
-		aeschiper.ReadAndWriteStream(*clientB, *clientA, true)
-
-	}()
-	<-stopChannel
-	time.Sleep(5 * time.Second)
-	// wg.Wait()
+	go aeschiper.ReadAndWriteStream(*clientB, *clientA, true)
 }

@@ -1,4 +1,4 @@
-package aescbc
+package aescrypto
 
 import (
 	"crypto/aes"
