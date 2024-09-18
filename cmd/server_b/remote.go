@@ -45,16 +45,14 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	defer log.Println("conn is closed")
+	log.Println("----conn is closed")
 
 	defer conn.Close()
 
-	socksConn, err := net.DialTimeout("tcp", *serverIp, 5*time.Second)
-	clientA := internal.NewClient(conn)
-	clientB := internal.NewClient(socksConn)
+	socksConn, err := net.Dial("tcp", *serverIp)
 	//  to SOCKS
 	if err != nil {
-		log.Println(clientA.Id, "[error_dial]", err)
+		log.Println(&conn, "[error_dial]", err)
 		return
 	}
 	defer socksConn.Close()
@@ -65,9 +63,41 @@ func handleConn(conn net.Conn) {
 		return
 	}
 
+	clientA := internal.NewClient(conn)
+	clientB := internal.NewClient(socksConn)
+
+	defer log.Println(clientA.Id, "A connection closed")
+	defer log.Println(clientB.Id, "B connection closed")
+
+	log.Println("AconnId:", clientA.Id, "BconnId:", clientB.Id)
+
+	stopChannel := make(chan bool, 2)
+	// defer close(stopChannel)
+
+	// wg.Add(2)
 	//  to SOCKS
-	go aeschiper.ReadAndWriteStream(*clientA, *clientB, false)
+	go func() {
+		defer func() { stopChannel <- true }() // stopChannel <- true
+
+		// defer wg.Done()
+		// defer log.Println("[---------A close]", clientA.Id)
+
+		// aeschiper.ReadAndWrite(conn, socksConn, false)
+		aeschiper.ReadAndWriteStream(*clientA, *clientB, false)
+	}()
 
 	//  from SOCKS
-	go aeschiper.ReadAndWriteStream(*clientB, *clientA, true)
+	go func() {
+		defer func() { stopChannel <- true }() // stopChannel <- true
+
+		// defer wg.Done()
+		// defer log.Println("[---------B  close]", clientB.Id)
+
+		// aeschiper.ReadAndWrite(socksConn, conn, true)
+		aeschiper.ReadAndWriteStream(*clientB, *clientA, true)
+
+	}()
+	<-stopChannel
+	time.Sleep(5 * time.Second)
+	// wg.Wait()
 }

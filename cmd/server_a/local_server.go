@@ -42,15 +42,13 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	defer log.Println("conn is closed")
+	log.Println("----conn is closed")
+
 	defer conn.Close()
-	// bConn, err := net.Dial("tcp", *serverIp)
-	bConn, err := net.DialTimeout("tcp", *serverIp, 5*time.Second)
-	//  to SOCKS
-	clientA := internal.NewClient(conn)
-	clientB := internal.NewClient(bConn)
+	bConn, err := net.Dial("tcp", *serverIp)
+	// 发送到服务B
 	if err != nil {
-		log.Println(clientA.Id, "[error_dial]", err)
+		log.Println(&conn, "[error_dial]", err)
 		return
 	}
 	defer bConn.Close()
@@ -61,9 +59,34 @@ func handleConn(conn net.Conn) {
 		return
 	}
 
-	//  to SOCKS
-	go aeschiper.ReadAndWriteStream(*clientA, *clientB, true)
+	clientA := internal.NewClient(conn)
+	clientB := internal.NewClient(bConn)
 
-	//  from SOCKS
-	go aeschiper.ReadAndWriteStream(*clientB, *clientA, false)
+	log.Println("#AconnId:", clientA.Id, "BconnId:", clientB.Id)
+	// wg.Add(2)
+	stopChannel := make(chan bool, 2)
+
+	// 加密并发送到服务B
+	go func() {
+		// defer wg.Done()
+		defer func() { stopChannel <- true }() // stopChannel <- true
+		// defer log.Println("[---------A close]", clientA.Id)
+		// aeschiper.ReadAndWrite(conn, bConn, true)
+		aeschiper.ReadAndWriteStream(*clientA, *clientB, true)
+	}()
+
+	// 从服务B读取并解密然后发送到客户端
+	go func() {
+		defer func() { stopChannel <- true }() // stopChannel <- true
+
+		// defer wg.Done()
+		// defer log.Println("[---------B  close]", clientB.Id)
+		// aeschiper.ReadAndWrite(bConn, conn, false)
+		aeschiper.ReadAndWriteStream(*clientB, *clientA, false)
+	}()
+
+	<-stopChannel
+	time.Sleep(5 * time.Second)
+	// wg.Wait()
+
 }
