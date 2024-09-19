@@ -25,6 +25,9 @@ func ConnID(conn net.Conn) string {
 	// if err != nil {
 	// 	return ""
 	// }
+	if execCount > 100000 {
+		execCount = 0
+	}
 	execCount++
 	// return fmt.Sprintf("%v:%v", conn.RemoteAddr(), execCount)
 	return fmt.Sprintf("conid[%v]", execCount)

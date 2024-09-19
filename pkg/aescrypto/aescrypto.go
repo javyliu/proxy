@@ -150,7 +150,6 @@ func (c *AesChiper) ReadAndWrite(conn net.Conn, bConn net.Conn, encrypt bool) er
 // encrypt: false 代表 B -> Socket （从B解密数据并发送到Socket）
 
 func (c *AesChiper) ReadAndWriteStream(src internal.Client, dst internal.Client, encrypt bool) error {
-
 	var iv []byte
 	var stream cipher.Stream
 	if encrypt {
@@ -163,6 +162,7 @@ func (c *AesChiper) ReadAndWriteStream(src internal.Client, dst internal.Client,
 	} else {
 		iv = make([]byte, aes.BlockSize)
 		if _, err := io.ReadFull(src.Conn, iv); err != nil {
+
 			return err
 		}
 		stream = cipher.NewCFBDecrypter(*c.Block, iv)
@@ -170,12 +170,12 @@ func (c *AesChiper) ReadAndWriteStream(src internal.Client, dst internal.Client,
 	}
 
 	writer := cipher.StreamWriter{S: stream, W: dst.Conn}
-	log.Printf("%v to %v\n", src.Id, dst.Id)
 	_, err := io.Copy(writer, src.Conn)
+	log.Println("[io_copy]", src.Id, dst.Id)
+
 	if err != nil {
-		log.Println("[error_copy]", err)
+		log.Println("[error_copy]", src.Id, dst.Id, err)
 		return err
 	}
-	log.Printf("%v to %v finished\n", src.Id, dst.Id)
 	return nil
 }
