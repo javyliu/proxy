@@ -11,8 +11,6 @@ import (
 	"github.com/javyliu/proxy/pkg/aescrypto"
 )
 
-var wg sync.WaitGroup
-
 var localIp *string
 var serverIp *string
 var key *string
@@ -43,7 +41,9 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	log.Println("----conn is closed")
+	var wg sync.WaitGroup
+
+	defer log.Println("----conn is closed")
 
 	defer conn.Close()
 	bConn, err := net.DialTimeout("tcp", *serverIp, time.Second*5)
@@ -53,7 +53,7 @@ func handleConn(conn net.Conn) {
 		log.Println(&conn, "[error_dial]", err)
 		return
 	}
-	// bConn.SetDeadline(time.Now().Add(30 * time.Second))
+	bConn.SetDeadline(time.Now().Add(30 * time.Second))
 	defer bConn.Close()
 
 	aeschiper, err := aescrypto.New(*key)
@@ -72,6 +72,8 @@ func handleConn(conn net.Conn) {
 	// 加密并发送到服务B
 	go func() {
 		defer wg.Done()
+		defer log.Println("[-------A closed]", clientA.Id)
+		log.Println("start client C -> A -> B")
 		// defer func() { stopChannel <- true }() // stopChannel <- true
 		// defer log.Println("[---------A close]", clientA.Id)
 		// aeschiper.ReadAndWrite(conn, bConn, true)
@@ -83,7 +85,8 @@ func handleConn(conn net.Conn) {
 		// defer func() { stopChannel <- true }() // stopChannel <- true
 
 		defer wg.Done()
-		// defer log.Println("[---------B  close]", clientB.Id)
+		defer log.Println("[-------B  closed]", clientB.Id)
+		log.Println("start client B -> A -> C")
 		// aeschiper.ReadAndWrite(bConn, conn, false)
 		aeschiper.ReadAndWriteStream(*clientB, *clientA, false)
 	}()

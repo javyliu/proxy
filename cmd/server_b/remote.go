@@ -11,7 +11,6 @@ import (
 	"github.com/javyliu/proxy/pkg/aescrypto"
 )
 
-var wg sync.WaitGroup
 var localIp *string
 var serverIp *string
 var key *string
@@ -46,7 +45,9 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	log.Println("----conn is closed")
+	var wg sync.WaitGroup
+
+	defer log.Println("----conn is closed")
 
 	defer conn.Close()
 
@@ -57,6 +58,8 @@ func handleConn(conn net.Conn) {
 		log.Println(&conn, "[error_dial]", err)
 		return
 	}
+	socksConn.SetDeadline(time.Now().Add(30 * time.Second))
+
 	defer socksConn.Close()
 
 	aeschiper, err := aescrypto.New(*key)
@@ -79,6 +82,8 @@ func handleConn(conn net.Conn) {
 		// defer func() { stopChannel <- true }() // stopChannel <- true
 
 		defer wg.Done()
+		defer log.Println("[-------B closed]", clientA.Id)
+		log.Println("start client B -> S")
 		// defer log.Println("[---------A close]", clientA.Id)
 
 		// aeschiper.ReadAndWrite(conn, socksConn, false)
@@ -90,6 +95,8 @@ func handleConn(conn net.Conn) {
 		// defer func() { stopChannel <- true }() // stopChannel <- true
 
 		defer wg.Done()
+		defer log.Println("[-------S closed]", clientB.Id)
+		log.Println("start client B -> A")
 		// defer log.Println("[---------B  close]", clientB.Id)
 
 		// aeschiper.ReadAndWrite(socksConn, conn, true)
