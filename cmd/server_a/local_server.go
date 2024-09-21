@@ -53,7 +53,7 @@ func handleConn(conn net.Conn) {
 		log.Println(&conn, "[error_dial]", err)
 		return
 	}
-	bConn.SetDeadline(time.Now().Add(30 * time.Second))
+	bConn.SetDeadline(time.Now().Add(60 * time.Second))
 	defer bConn.Close()
 
 	aeschiper, err := aescrypto.New(*key)
