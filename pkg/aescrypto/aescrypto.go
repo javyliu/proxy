@@ -105,6 +105,14 @@ func (c *AesChiper) ReadAndWrite(conn net.Conn, bConn net.Conn, encrypt bool) er
 		if err != nil {
 			if err == io.EOF {
 				log.Println(c.AconnId, "[read_eof]", err)
+				// 这里有问题，如果在遇到io.EOF之时，buf中还有数据，应该再次处理后传到bConn中, 所以加上sendToBconn方法
+
+				if n > 0 {
+					if err := sendToBconn(bConn, buf[:n], c, encrypt); err != nil {
+						return err
+					}
+
+				}
 				break
 			} else {
 				log.Println(c.AconnId, "[error_read]", err)
@@ -114,34 +122,34 @@ func (c *AesChiper) ReadAndWrite(conn net.Conn, bConn net.Conn, encrypt bool) er
 
 		//log.Println(c.AconnId, "[read_length]:", n, encrypt)
 
-		var outdata []byte
-		if encrypt {
-			log.Println(c.AconnId, "[加密前]:", n)
-			outdata = c.Encrypt(buf[:n])
-			log.Println(c.AconnId, "[加密后]:", len(outdata))
-		} else {
-			log.Println(c.BconnId, "[解密前]:", n)
-			if n%16 != 0 {
-				log.Println(c.BconnId, "[解密前]:", n, "不是16的倍数")
-				continue
-			}
-			outdata = c.Decrypt(buf[:n])
-			log.Println(c.BconnId, "[解密后]:", len(outdata))
-		}
-
-		_, err = bConn.Write(outdata)
-
-		if err != nil {
-			if err == io.ErrClosedPipe {
-				log.Println(c.BconnId, "[remote_closed]", err)
-
-			} else {
-				log.Println(c.BconnId, "[error_write]", err)
-
-			}
+		if err := sendToBconn(bConn, buf[:n], c, encrypt); err != nil {
 			return err
 		}
+	}
 
+	return nil
+}
+
+func sendToBconn(bConn net.Conn, buf []byte, c *AesChiper, encrypt bool) error {
+	var outdata []byte
+	if encrypt {
+		outdata = c.Encrypt(buf)
+		log.Println(c.AconnId, "[加密后]:", len(outdata))
+	} else {
+		outdata = c.Decrypt(buf)
+		log.Println(c.BconnId, "[解密后]:", len(outdata))
+	}
+
+	_, err := bConn.Write(outdata)
+
+	if err != nil {
+		if err == io.ErrClosedPipe {
+			log.Println(c.BconnId, "[remote_closed]", err)
+
+		} else {
+			log.Println(c.BconnId, "[error_write]", err)
+		}
+		return err
 	}
 	return nil
 }
