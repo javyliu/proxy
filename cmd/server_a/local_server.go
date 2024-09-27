@@ -14,11 +14,13 @@ import (
 var localIp *string
 var serverIp *string
 var key *string
+var timeout *int
 
 func main() {
 	localIp = flag.String("lip", ":18305", "本地服务监听地址")
 	serverIp = flag.String("rip", ":18304", "远程服务监听地址")
 	key = flag.String("key", "test", "aes加密key")
+	timeout = flag.Int("td", 60, "连接到远程服务器的超时时间单位 秒")
 
 	flag.Parse()
 	log.SetPrefix("[local] ")
@@ -53,7 +55,7 @@ func handleConn(conn net.Conn) {
 		log.Println(&conn, "[error_dial]", err)
 		return
 	}
-	bConn.SetDeadline(time.Now().Add(60 * time.Second))
+	bConn.SetDeadline(time.Now().Add(time.Second * time.Duration(*timeout)))
 	defer bConn.Close()
 
 	aeschiper, err := aescrypto.New(*key)
