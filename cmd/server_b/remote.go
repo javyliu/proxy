@@ -14,12 +14,14 @@ import (
 var localIp *string
 var serverIp *string
 var key *string
+var timeout *int
 
 func main() {
 
 	localIp = flag.String("lip", ":18304", "本地服务监听地址")
 	serverIp = flag.String("rip", "127.0.0.1:1080", "远程服务监听地址")
 	key = flag.String("key", "test", "aes加密key")
+	timeout = flag.Int("td", 60, "连接到远程服务器的超时时间单位 秒")
 
 	flag.Parse()
 
@@ -58,7 +60,7 @@ func handleConn(conn net.Conn) {
 		log.Println(&conn, "[error_dial]", err)
 		return
 	}
-	socksConn.SetDeadline(time.Now().Add(30 * time.Second))
+	socksConn.SetDeadline(time.Now().Add(time.Second * time.Duration(*timeout)))
 
 	defer socksConn.Close()
 
